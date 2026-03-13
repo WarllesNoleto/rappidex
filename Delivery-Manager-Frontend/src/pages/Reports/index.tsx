@@ -81,7 +81,7 @@ export function Reports() {
             const response = await api.get(`/delivery?status=${selectedStatus}&itemsPerPage=50${param}`)
             setReports(response.data.data)
             setPage(2)
-            setReportsCount(response.data.count)
+            setReportsCount(response.data.count || response.data.data.length)
             setLoading(false)
         } catch (error: any) {
             alert(error.response.data.message)
@@ -125,7 +125,9 @@ export function Reports() {
 
         try {
             const response = await api.get(`/delivery?status=${selectedStatus}&page=${page}&itemsPerPage=50${param}`)
-            setReports([...reports, ...response.data.data])
+            const updatedReports = [...reports, ...response.data.data]
+setReports(updatedReports)
+setReportsCount(response.data.count || updatedReports.length)
             setPage(page + 1)
             setLoadingMoreReports(false)
         } catch (error: any) {

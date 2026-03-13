@@ -152,76 +152,91 @@ export class DeliveryService {
     let changedDelivery: any = {};
 
     if (userFinded.type === UserType.ADMIN) {
-      changedDelivery = { ...deliveryFinded, ...deliveryData };
+  changedDelivery = { ...deliveryFinded, ...deliveryData };
 
-      if (deliveryData.establishmentId) {
-        establishmentFinded = await this.findOneUserById(
-          deliveryData.establishmentId,
-        );
-      }
+  if (deliveryData.establishmentId) {
+    establishmentFinded = await this.findOneUserById(
+      deliveryData.establishmentId,
+    );
+  }
 
-      if (deliveryData.motoboyId) {
-        motoboyFinded = await this.findOneUserById(deliveryData.motoboyId);
-      }
-    }
+  if (deliveryData.motoboyId) {
+    motoboyFinded = await this.findOneUserById(deliveryData.motoboyId);
+  }
+}
 
     if (userFinded.type === UserType.SHOPKEEPER) {
       changedDelivery = { ...deliveryFinded, ...deliveryData };
     }
 
     if (userFinded.type === UserType.MOTOBOY) {
-      if (
-        deliveryFinded.motoboy != null &&
-        deliveryFinded.motoboy.id != userFinded.id
-      ) {
-        throw new BadRequestException(
-          'Essa entrega já foi atribuída a outro entregador.',
-        );
-      }
+  const freshDelivery = await this.deliveryRepository.findOneByOrFail({
+    id: deliveryId,
+  });
 
-      changedDelivery = { ...deliveryFinded, ...deliveryData };
+  if (
+    freshDelivery.motoboy != null &&
+    freshDelivery.motoboy.id !== userFinded.id
+  ) {
+    throw new BadRequestException(
+      'Essa entrega acabou de ser atribuída a outro entregador.',
+    );
+  }
+
+  if (
+  freshDelivery.motoboy != null &&
+  freshDelivery.motoboy.id != userFinded.id
+) {
+  throw new BadRequestException(
+    'Essa entrega já foi atribuída a outro entregador.',
+  );
+}
+
+  changedDelivery = { ...freshDelivery, ...deliveryData };
 
       const isTryingToTakeDelivery =
         deliveryData.motoboyId === userFinded.id &&
-        deliveryFinded.motoboy?.id !== userFinded.id;
+        freshDelivery.motoboy?.id !== userFinded.id
 
-      if (
-        deliveryData.status === StatusDelivery.ONCOURSE &&
-        !deliveryData.motoboyId &&
-        !deliveryFinded.motoboy?.id
-      ) {
+     if (
+  deliveryData.status === StatusDelivery.ONCOURSE &&
+  !deliveryData.motoboyId &&
+  !freshDelivery.motoboy?.id
+) {
         throw new BadRequestException(
           'É necessário que você selecione a opção de motoboy.',
         );
       }
 
       if (isTryingToTakeDelivery) {
-        const where: any = {
-          'motoboy.id': userFinded.id,
-          isActive: true,
-          status: {
-            $in: [
-              StatusDelivery.PENDING,
-              StatusDelivery.ONCOURSE,
-              StatusDelivery.COLLECTED,
-            ],
-          },
-        };
+  const activeDeliveries = await this.deliveryRepository.find({
+    where: {
+      isActive: true,
+    },
+  });
 
-        const deliveriesForMotoboy = await this.deliveryRepository.count({
-          where,
-        });
+  const deliveriesForMotoboy = activeDeliveries.filter((delivery: any) => {
+    return (
+      delivery?.motoboy?.id === userFinded.id &&
+      [
+        StatusDelivery.PENDING,
+        StatusDelivery.ONCOURSE,
+        StatusDelivery.COLLECTED,
+      ].includes(delivery.status) &&
+      delivery.id !== deliveryFinded.id
+    );
+  }).length;
 
-        if (deliveriesForMotoboy >= configs.amount) {
-          throw new BadRequestException(
-            `Você não pode pegar mais do que ${configs.amount} solicitações.`,
-          );
-        }
+  if (deliveriesForMotoboy >= configs.amount) {
+    throw new BadRequestException(
+      `Você não pode pegar mais do que ${configs.amount} solicitações.`,
+    );
+  }
 
-        motoboyFinded = userFinded;
-      } else if (deliveryFinded.motoboy?.id === userFinded.id) {
-        motoboyFinded = userFinded;
-      }
+  motoboyFinded = userFinded;
+} else if (freshDelivery.motoboy?.id === userFinded.id) {
+  motoboyFinded = userFinded;
+}
     }
 
     if (establishmentFinded) {

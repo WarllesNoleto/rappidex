@@ -171,7 +171,7 @@ export function NewUser(){
     const name = watch('name')
     const phone = watch('phone')
     const pix = watch('pix')
-    const profileImage = watch('profileImage')
+    //const profileImage = watch('profileImage')
     // const location = watch('location')
     const isSubmitDisabled = !name || !phone || !pix || phone.includes('_')
 
