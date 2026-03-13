@@ -9,11 +9,19 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     TypeOrmModule.forFeature([UserEntity]),
     JwtModule.registerAsync({
-      imports: [ConfigModule.forRoot()],
+      imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET_KEY'),
+        secret:
+          configService.get<string>('JWT_SECRET') ||
+          'rappidex_chave_secreta_123456',
+        signOptions: {
+          expiresIn: configService.get<string>('JWT_EXPIRES_IN') || '7d',
+        },
       }),
       inject: [ConfigService],
     }),
