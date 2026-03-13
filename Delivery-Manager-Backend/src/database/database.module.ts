@@ -7,7 +7,7 @@ import { DeliveryConfigEntity, DeliveryEntity, UserEntity } from './entities';
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
-      imports: [ConfigModule.forRoot()],
+      imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         type: 'mongodb',
         url: configService.get<string>('MONGODB_URI'),

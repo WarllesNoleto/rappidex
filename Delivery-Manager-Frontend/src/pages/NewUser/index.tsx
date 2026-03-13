@@ -173,7 +173,7 @@ export function NewUser(){
     const pix = watch('pix')
     const profileImage = watch('profileImage')
     // const location = watch('location')
-    const isSubmitDisabled = !name || !phone || !pix || !profileImage || phone.includes('_')
+    const isSubmitDisabled = !name || !phone || !pix || phone.includes('_')
 
     useEffect(() => {
         getUserData()
