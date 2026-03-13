@@ -1,11 +1,15 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional } from 'class-validator';
 
 export class ConfigsDto {
-  @IsString()
   @IsOptional()
-  amountDeliverys: string;
+  amountDeliveries?: string | number;
 
-  @IsString()
   @IsOptional()
-  blockDeliverys: string;
+  amountDeliverys?: string | number;
+
+  @IsOptional()
+  blockDeliveries?: string | boolean;
+
+  @IsOptional()
+  blockDeliverys?: string | boolean;
 }

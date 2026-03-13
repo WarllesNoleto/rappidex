@@ -23,11 +23,10 @@ import {
 import {
   ConfigsDto,
   CreateDeliveryDto,
-  // DeliveryAmountParamsDto,
   DeliveryParamsDto,
   DeliveryResult,
   ListDeliveriesQueryDTO,
-  ListDeliverysResult,
+  ListDeliveriesResult,
   UpdateDeliveryDto,
 } from './dto';
 
@@ -69,7 +68,7 @@ export class DeliveryController {
     type: DeliveryResult,
   })
   @UseGuards(JwtAuthGuard)
-  async updateDelievery(
+  async updateDelivery(
     @Param() param: DeliveryParamsDto,
     @User() user: UserRequest,
     @Body() data: UpdateDeliveryDto,
@@ -84,12 +83,12 @@ export class DeliveryController {
   @Get()
   @ApiOperation({
     operationId: 'ListDelivery',
-    summary: 'List all deliverys',
+    summary: 'List all deliveries',
   })
   @ApiResponse({
     status: 201,
     description: 'The delivery resource.',
-    type: ListDeliverysResult,
+    type: ListDeliveriesResult,
   })
   @UseGuards(JwtAuthGuard)
   async listDeliveries(

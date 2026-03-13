@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'path';
-import { DeliveryEntity, UserEntity } from './entities';
+import { DeliveryConfigEntity, DeliveryEntity, UserEntity } from './entities';
 
 @Module({
   imports: [
@@ -19,6 +19,6 @@ import { DeliveryEntity, UserEntity } from './entities';
       inject: [ConfigService],
     }),
   ],
-  exports: [TypeOrmModule.forFeature([UserEntity, DeliveryEntity])],
+  exports: [TypeOrmModule.forFeature([UserEntity, DeliveryEntity, DeliveryConfigEntity])],
 })
 export class DatabaseModule {}

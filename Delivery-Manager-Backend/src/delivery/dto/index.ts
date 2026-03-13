@@ -4,7 +4,7 @@ export * from './configs.dto';
 
 export * from './delivery.param.dto';
 export * from './delivery-amount.param.dto';
-export * from './list-deliverys-query';
+export * from './list-deliveries-query';
 
 export * from './delivery-result.dto';
-export * from './list-deliverys-result';
+export * from './list-deliveries-result';

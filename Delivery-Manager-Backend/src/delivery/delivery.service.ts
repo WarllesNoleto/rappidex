@@ -4,7 +4,12 @@ import { MongoRepository } from 'typeorm';
 import { v4 as uuid } from 'uuid';
 import { addHours } from 'date-fns';
 
-import { DeliveryEntity, LogEntity, UserEntity } from '../database/entities';
+import {
+  DeliveryConfigEntity,
+  DeliveryEntity,
+  LogEntity,
+  UserEntity,
+} from '../database/entities';
 import { OrdersGateway } from '../gateway/orders.gateway';
 
 import {
@@ -12,7 +17,7 @@ import {
   CreateDeliveryDto,
   DeliveryResult,
   ListDeliveriesQueryDTO,
-  ListDeliverysResult,
+  ListDeliveriesResult,
   UpdateDeliveryDto,
 } from './dto';
 
@@ -22,8 +27,9 @@ import { sendNotificationsFor } from 'src/shared/utils/notification.functions';
 
 @Injectable()
 export class DeliveryService {
-  motoboysDeliveriesAmount = 2;
-  blockDeliverys = false;
+  private readonly configKey = 'default';
+  private readonly defaultMotoboysDeliveriesAmount = 2;
+  private readonly defaultBlockDeliveries = false;
 
   constructor(
     @InjectRepository(UserEntity)
@@ -35,13 +41,16 @@ export class DeliveryService {
     @InjectRepository(LogEntity)
     private readonly logRepository: MongoRepository<LogEntity>,
 
+    @InjectRepository(DeliveryConfigEntity)
+    private readonly deliveryConfigRepository: MongoRepository<DeliveryConfigEntity>,
+
     private readonly ordersGateway: OrdersGateway,
   ) {}
 
   async listDeliveries(
     user: UserRequest,
     queryParams: ListDeliveriesQueryDTO,
-  ): Promise<ListDeliverysResult> {
+  ): Promise<ListDeliveriesResult> {
     const userForRequest = await this.findOneUserById(user.id);
 
     const skip = (queryParams.page - 1) * queryParams.itemsPerPage;
@@ -119,7 +128,7 @@ export class DeliveryService {
       throw error;
     }
 
-    return ListDeliverysResult.fromEntities(
+    return ListDeliveriesResult.fromEntities(
       deliveries,
       deliveries.length,
       queryParams.page,
@@ -132,10 +141,11 @@ export class DeliveryService {
     deliveryData: UpdateDeliveryDto,
     user: UserRequest,
   ) {
-    const userFinded = await this.findOneUserById(user.id);
-    const deliveryFinded = await this.deliveryRepository.findOneByOrFail({
-      id: deliveryId,
-    });
+    const [userFinded, deliveryFinded, configs] = await Promise.all([
+      this.findOneUserById(user.id),
+      this.deliveryRepository.findOneByOrFail({ id: deliveryId }),
+      this.getConfigsEntity(),
+    ]);
 
     let establishmentFinded;
     let motoboyFinded;
@@ -171,37 +181,45 @@ export class DeliveryService {
 
       changedDelivery = { ...deliveryFinded, ...deliveryData };
 
+      const isTryingToTakeDelivery =
+        deliveryData.motoboyId === userFinded.id &&
+        deliveryFinded.motoboy?.id !== userFinded.id;
+
       if (
         deliveryData.status === StatusDelivery.ONCOURSE &&
-        !deliveryData.motoboyId
+        !deliveryData.motoboyId &&
+        !deliveryFinded.motoboy?.id
       ) {
         throw new BadRequestException(
           'É necessário que você selecione a opção de motoboy.',
         );
       }
 
-      if (deliveryData.motoboyId) {
-        const where: any = {};
-        where['motoboy.id'] = userFinded.id;
-        where['isActive'] = true;
-        where['status'] = {
-          $in: [
-            StatusDelivery.PENDING,
-            StatusDelivery.ONCOURSE,
-            StatusDelivery.COLLECTED,
-          ],
+      if (isTryingToTakeDelivery) {
+        const where: any = {
+          'motoboy.id': userFinded.id,
+          isActive: true,
+          status: {
+            $in: [
+              StatusDelivery.PENDING,
+              StatusDelivery.ONCOURSE,
+              StatusDelivery.COLLECTED,
+            ],
+          },
         };
 
         const deliveriesForMotoboy = await this.deliveryRepository.count({
           where,
         });
 
-        if (deliveriesForMotoboy >= this.motoboysDeliveriesAmount) {
+        if (deliveriesForMotoboy >= configs.amount) {
           throw new BadRequestException(
-            `Você não pode pegar mais do que ${this.motoboysDeliveriesAmount} solicitações.`,
+            `Você não pode pegar mais do que ${configs.amount} solicitações.`,
           );
         }
 
+        motoboyFinded = userFinded;
+      } else if (deliveryFinded.motoboy?.id === userFinded.id) {
         motoboyFinded = userFinded;
       }
     }
@@ -243,9 +261,7 @@ export class DeliveryService {
       throw error;
     }
 
-    if (
-      deliveryFinded.establishment?.notification?.subscriptionId
-    ) {
+    if (deliveryFinded.establishment?.notification?.subscriptionId) {
       if (
         deliveryData.status &&
         deliveryData.status === StatusDelivery.ONCOURSE
@@ -269,7 +285,10 @@ export class DeliveryService {
     deliveryData: CreateDeliveryDto,
     user: UserRequest,
   ): Promise<DeliveryResult> {
-    const userFinded = await this.findOneUserById(user.id);
+    const [userFinded, configs] = await Promise.all([
+      this.findOneUserById(user.id),
+      this.getConfigsEntity(),
+    ]);
     let establishment;
     let motoboy = null;
     let onCoursedAt = null;
@@ -286,7 +305,7 @@ export class DeliveryService {
 
     let deliveryStatus = status;
 
-    if (this.blockDeliverys && user.type !== UserType.ADMIN) {
+    if (configs.blockDeliveries && user.type !== UserType.ADMIN) {
       throw new BadRequestException(
         'Infelizmente as entregas foram encerradas por hoje.',
       );
@@ -399,21 +418,51 @@ export class DeliveryService {
   }
 
   async findConfigs() {
+    const configs = await this.getConfigsEntity();
+
     return {
       status: 200,
-      amount: this.motoboysDeliveriesAmount,
-      blockDeliverys: this.blockDeliverys,
+      amount: configs.amount,
+      amountDeliveries: configs.amount,
+      amountDeliverys: configs.amount,
+      blockDeliveries: configs.blockDeliveries,
+      blockDeliverys: configs.blockDeliveries,
     };
   }
 
   async changeConfigs(configs: ConfigsDto) {
-    if (configs.amountDeliverys) {
-      this.motoboysDeliveriesAmount = parseInt(configs.amountDeliverys);
+    const currentConfigs = await this.getConfigsEntity();
+
+    const nextAmount =
+      configs.amountDeliveries !== undefined && configs.amountDeliveries !== null
+        ? parseInt(String(configs.amountDeliveries), 10)
+        : configs.amountDeliverys !== undefined && configs.amountDeliverys !== null
+          ? parseInt(String(configs.amountDeliverys), 10)
+        : currentConfigs.amount;
+
+    if (Number.isNaN(nextAmount) || nextAmount < 1) {
+      throw new BadRequestException(
+        'A quantidade máxima de entregas deve ser um número maior que zero.',
+      );
     }
 
-    if (configs.blockDeliverys !== undefined) {
-      this.blockDeliverys = !this.blockDeliverys;
-    }
+    const nextBlockDeliveries =
+      configs.blockDeliveries !== undefined
+        ? configs.blockDeliveries === true ||
+          configs.blockDeliveries === 'true' ||
+          configs.blockDeliveries === '1'
+        : configs.blockDeliverys !== undefined
+          ? configs.blockDeliverys === true ||
+            configs.blockDeliverys === 'true' ||
+            configs.blockDeliverys === '1'
+          : currentConfigs.blockDeliveries;
+
+    await this.deliveryConfigRepository.save({
+      ...currentConfigs,
+      amount: nextAmount,
+      blockDeliveries: nextBlockDeliveries,
+      updatedAt: addHours(new Date(), -3),
+    });
 
     return {
       status: 200,
@@ -439,5 +488,25 @@ export class DeliveryService {
       motoboysNotificationsIds,
       `Nova solicitação de entrega no estabelecimento: ${establishmentName}`,
     );
+  }
+
+  private async getConfigsEntity(): Promise<DeliveryConfigEntity> {
+    const existingConfig = await this.deliveryConfigRepository.findOneBy({
+      key: this.configKey,
+    });
+
+    if (existingConfig) {
+      return existingConfig;
+    }
+
+    const now = addHours(new Date(), -3);
+
+    return await this.deliveryConfigRepository.save({
+      key: this.configKey,
+      amount: this.defaultMotoboysDeliveriesAmount,
+      blockDeliveries: this.defaultBlockDeliveries,
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 }
