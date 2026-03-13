@@ -292,7 +292,7 @@ export class DeliveryService {
         );
       }
     }
-
+    this.ordersGateway.notifyNewOrder(deliveryUpdated);
     return DeliveryResult.fromEntity(deliveryUpdated);
   }
 

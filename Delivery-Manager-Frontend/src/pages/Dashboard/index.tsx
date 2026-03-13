@@ -6,6 +6,8 @@ import { DeliveryContext } from "../../context/DeliveryContext";
 import api from "../../services/api";
 import { Motoboy, Report } from '../../shared/interfaces'
 
+import socket from "../../services/socket";
+
 import { 
     BaseButton, 
     Container, 
@@ -197,9 +199,18 @@ export function Dashboard() {
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
-        getData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [status])
+
+  getData(); // carrega pedidos ao abrir tela
+
+ socket.on("new-order", () => {
+  getData();
+});
+
+  return () => {
+    socket.off("new-order");
+  };
+
+}, [status]);
 
     return (
         <Container>
