@@ -168,17 +168,12 @@ export function NewUser(){
         }
     }
 
-const name = watch('name');
-const phone = watch('phone');
-const username = watch('user');
-const password = watch('password');
-const pix = watch('pix');
-
-const isEditing = !!user;
-
-const isSubmitDisabled = isEditing
-  ? !name || !phone || !username || !pix || !selectedType || phone.includes('_')
-  : !name || !phone || !username || !password || !pix || !selectedType || phone.includes('_');
+    const name = watch('name')
+    const phone = watch('phone')
+    const pix = watch('pix')
+    const profileImage = watch('profileImage')
+    // const location = watch('location')
+    const isSubmitDisabled = !name || !phone || !pix || !profileImage || phone.includes('_')
 
     useEffect(() => {
         getUserData()

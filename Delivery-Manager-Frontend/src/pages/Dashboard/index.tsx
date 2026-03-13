@@ -6,8 +6,6 @@ import { DeliveryContext } from "../../context/DeliveryContext";
 import api from "../../services/api";
 import { Motoboy, Report } from '../../shared/interfaces'
 
-import { io } from "socket.io-client";
-
 import { 
     BaseButton, 
     Container, 
@@ -192,29 +190,16 @@ export function Dashboard() {
     }
 
     useEffect(() => {
-    if(motoboys.length === 1) {
-        setSelectedMotoboy(motoboys[0].id)
-    }
-}, [motoboys])
+        if(motoboys.length === 1) {
+            setSelectedMotoboy(motoboys[0].id)
+        }
+    }, [motoboys])
 
-useEffect(() => {
-    getData();
-// eslint-disable-next-line react-hooks/exhaustive-deps
-}, [status])
-
-useEffect(() => {
-
-  const socket = io("http://localhost:3000");
-
-  socket.on("new-order", () => {
-    getData();
-  });
-
-  return () => {
-    socket.disconnect();
-  };
-
-}, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => {
+        getData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [status])
 
     return (
         <Container>
