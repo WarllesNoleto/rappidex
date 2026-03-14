@@ -8,6 +8,8 @@ import { Motoboy, Report } from '../../shared/interfaces'
 
 import socket from "../../services/socket";
 
+const notificationSound = new Audio("/notification.mp3");
+
 import { 
     BaseButton, 
     Container, 
@@ -49,6 +51,8 @@ export function Dashboard() {
     const [isVisible, setIsVisible] = useState(false)
     const [observation, setObservation] = useState('')
     const [reportSelectedToModal, setReportSelectedToModal] = useState('')
+
+    const [showNotification, setShowNotification] = useState(false);
 
     function handleModal() {
         setIsVisible(!isVisible)
@@ -199,21 +203,60 @@ export function Dashboard() {
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
-
-  getData(); // carrega pedidos ao abrir tela
-
- socket.on("new-order", () => {
   getData();
-});
 
+socket.on("new-order", () => {
+    notificationSound.currentTime = 0;
+    notificationSound.play().catch(() => null);
+    setShowNotification(true);
+    getData();
+
+    setTimeout(() => {
+        setShowNotification(false);
+        }, 3000);
+});
   return () => {
     socket.off("new-order");
+    socket.off("order-updated");
   };
 
 }, [status]);
-
+            <style>
+        {`
+        @keyframes slideIn {
+        from {
+            transform: translateX(120%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        }
+        `}
+        </style>
     return (
         <Container>
+            {showNotification && (
+  <div
+    style={{
+      position: "fixed",
+      top: "20px",
+      right: "20px",
+      background: "#16a34a",
+      color: "#fff",
+      padding: "16px 22px",
+      borderRadius: "12px",
+      fontWeight: "bold",
+      fontSize: "16px",
+      zIndex: 9999,
+      boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
+      animation: "slideIn 0.4s ease",
+    }}
+  >
+    📦 Novo pedido recebido!
+  </div>
+)}
             <BaseModal isVisible={isVisible} handleClose={handleModal} setObservation={setObservation} />
             <ContainerButtons>
                     <BaseButton typeReport={status == StatusDelivery.PENDING} onClick={() => setStatus(StatusDelivery.PENDING)}>

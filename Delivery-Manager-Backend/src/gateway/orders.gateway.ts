@@ -7,7 +7,7 @@ import { Server } from 'socket.io';
   },
 })
 export class OrdersGateway {
-
+  
   @WebSocketServer()
   server: Server;
 
@@ -15,4 +15,7 @@ export class OrdersGateway {
     this.server.emit('new-order', order);
   }
 
+  notifyOrderUpdated(order: any) {
+    this.server.emit('order-updated', order);
+  }
 }
