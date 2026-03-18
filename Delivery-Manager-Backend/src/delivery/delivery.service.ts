@@ -402,31 +402,35 @@ export class DeliveryService {
   }
 
   async deleteDelivery(deliveryId: string, user: UserRequest) {
-    const userFinded = await this.findOneUserById(user.id);
-    const deliveryFinded = await this.deliveryRepository.findOneByOrFail({
-      id: deliveryId,
-    });
+  const userFinded = await this.findOneUserById(user.id);
+  const deliveryFinded = await this.deliveryRepository.findOneByOrFail({
+    id: deliveryId,
+  });
 
-    if (
-      (userFinded.type === UserType.SHOPKEEPER ||
-        userFinded.type === UserType.SHOPKEEPERADMIN) &&
-      deliveryFinded.establishment.id != userFinded.id
-    ) {
-      throw new BadRequestException('Você não é o dono dessa entrega.');
-    }
-
-    try {
-      await this.deliveryRepository.save({
-        ...deliveryFinded,
-        isActive: false,
-        updatedAt: addHours(new Date(), -3),
-      });
-    } catch (error) {
-      throw error;
-    }
-
-    return { status: 200, message: 'Entrega apagada com sucesso!' };
+  if (
+    (userFinded.type === UserType.SHOPKEEPER ||
+      userFinded.type === UserType.SHOPKEEPERADMIN) &&
+    deliveryFinded.establishment.id != userFinded.id
+  ) {
+    throw new BadRequestException('Você não é o dono dessa entrega.');
   }
+
+  let deletedDelivery;
+
+  try {
+    deletedDelivery = await this.deliveryRepository.save({
+      ...deliveryFinded,
+      isActive: false,
+      updatedAt: addHours(new Date(), -3),
+    });
+  } catch (error) {
+    throw error;
+  }
+
+  this.ordersGateway.notifyOrderUpdated(deletedDelivery);
+
+  return { status: 200, message: 'Entrega apagada com sucesso!' };
+}
 
   async findOneUserById(userId: string) {
     return await this.userRepository.findOneBy({ id: userId });

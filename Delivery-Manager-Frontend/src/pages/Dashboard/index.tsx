@@ -156,14 +156,13 @@ export function Dashboard() {
     }
 
     async function handlerDelete(report: Report) {
-        try {
-            await api.delete(`/delivery/${report.id}`)
-            alert('Solicitação apagada com sucesso.')
-            getData()
-        } catch (error: any) {
-            alert(error.response.data.message)
-        }
+    try {
+        await api.delete(`/delivery/${report.id}`)
+        alert('Solicitação apagada com sucesso.')
+    } catch (error: any) {
+        alert(error.response.data.message)
     }
+}
 
     function getButtonText(status: string, id: string) {
         if (StatusDelivery.PENDING === status) {
@@ -201,40 +200,33 @@ export function Dashboard() {
         }
     }, [motoboys])
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => {
-  getData();
-
-socket.on("new-order", () => {
-    notificationSound.currentTime = 0;
-    notificationSound.play().catch(() => null);
-    setShowNotification(true);
+useEffect(() => {
     getData();
 
-    setTimeout(() => {
-        setShowNotification(false);
-        }, 3000);
-});
-  return () => {
-    socket.off("new-order");
-    socket.off("order-updated");
-  };
+    const handleNewOrder = () => {
+        notificationSound.currentTime = 0;
+        notificationSound.play().catch(() => null);
+        setShowNotification(true);
+        getData();
 
+        setTimeout(() => {
+            setShowNotification(false);
+        }, 3000);
+    };
+
+    const handleOrderUpdated = () => {
+        getData();
+    };
+
+    socket.on("new-order", handleNewOrder);
+    socket.on("order-updated", handleOrderUpdated);
+
+    return () => {
+        socket.off("new-order", handleNewOrder);
+        socket.off("order-updated", handleOrderUpdated);
+    };
 }, [status]);
-            <style>
-        {`
-        @keyframes slideIn {
-        from {
-            transform: translateX(120%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        }
-        `}
-        </style>
+         
     return (
         <Container>
             {showNotification && (
@@ -251,7 +243,8 @@ socket.on("new-order", () => {
       fontSize: "16px",
       zIndex: 9999,
       boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
-      animation: "slideIn 0.4s ease",
+      animation: "none",
+      transition: "all 0.3s ease",
     }}
   >
     📦 Novo pedido recebido!
